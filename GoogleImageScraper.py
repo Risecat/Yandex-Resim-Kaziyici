@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Updated for 2025 - Yandex Images - Extract real image URLs
+IMPROVED VERSION - Better handling for large image counts
 """
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -62,19 +63,64 @@ class YandexImageScraper():
     def extract_real_url(self, yandex_url):
         """Yandex arama URL'sinden gerçek resim URL'sini çıkar"""
         try:
-            # URL'den img_url parametresini çıkar
             if 'img_url=' in yandex_url:
                 parsed = urlparse(yandex_url)
                 params = parse_qs(parsed.query)
                 
                 if 'img_url' in params:
-                    # URL decode et
                     real_url = unquote(params['img_url'][0])
                     return real_url
             
             return None
         except:
             return None
+
+    def try_click_load_more_button(self):
+        """Daha fazla göster butonunu tıklamayı dene"""
+        try:
+            load_more_selectors = [
+                "button.FetchListButton-Button",
+                "button.Button_view_action",
+                "button[class*='FetchListButton']",
+                "button[class*='LoadButton']",
+                "button[class*='Button2_view_action']",
+                ".FetchListButton",
+                ".Button2_view_action"
+            ]
+            
+            for selector in load_more_selectors:
+                try:
+                    buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    
+                    for button in buttons:
+                        try:
+                            button_text = button.text.strip().lower()
+                            # Türkçe, Rusça ve İngilizce kontrol
+                            if any(keyword in button_text for keyword in ['daha fazla', 'показать', 'show more', 'загрузить', 'more', 'load']):
+                                print(f"[INFO] '{button.text}' butonuna tıklanıyor...")
+                                
+                                # Butonu görünür hale getir
+                                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", button)
+                                time.sleep(1)
+                                
+                                # Tıkla
+                                try:
+                                    button.click()
+                                except:
+                                    # JavaScript ile tıkla
+                                    self.driver.execute_script("arguments[0].click();", button)
+                                
+                                time.sleep(3)
+                                print("[SUCCESS] Butona tıklandı, yeni içerik yükleniyor...")
+                                return True
+                        except:
+                            continue
+                except:
+                    continue
+            
+            return False
+        except:
+            return False
 
     def find_image_urls(self):
         print("[INFO] Gathering image links from Yandex")
@@ -87,12 +133,22 @@ class YandexImageScraper():
         
         image_urls = set()
         scroll_count = 0
-        max_scrolls = 50
+        max_scrolls = 3000  # ÇOK DAHA YÜKSEK LIMIT
+        no_new_images_count = 0
+        last_button_click = 0
         
         print("[INFO] Starting to collect images...")
         
         while len(image_urls) < self.number_of_images and scroll_count < max_scrolls:
             try:
+                previous_count = len(image_urls)
+                
+                # Her 3 scroll'da bir buton kontrolü yap
+                if scroll_count % 3 == 0 or no_new_images_count >= 3:
+                    if self.try_click_load_more_button():
+                        last_button_click = scroll_count
+                        no_new_images_count = 0  # Buton tıklandı, sayacı sıfırla
+                
                 # METHOD 1: Link elementlerinden gerçek URL'leri çıkar
                 links = self.driver.find_elements(By.TAG_NAME, "a")
                 
@@ -102,11 +158,9 @@ class YandexImageScraper():
                     
                     href = link.get_attribute('href')
                     if href and 'img_url=' in href:
-                        # Gerçek resim URL'sini çıkar
                         real_url = self.extract_real_url(href)
                         
                         if real_url and len(real_url) > 50:
-                            # Geçerli bir resim URL'si mi kontrol et
                             if any(ext in real_url.lower() for ext in ['.jpg', '.jpeg', '.png', '.webp']):
                                 if real_url not in image_urls:
                                     image_urls.add(real_url)
@@ -115,7 +169,6 @@ class YandexImageScraper():
                 # METHOD 2: Sayfa kaynağından direkt img_url parametrelerini çıkar
                 page_source = self.driver.page_source
                 
-                # img_url parametrelerini bul
                 pattern = r'img_url=([^&"\']+)'
                 matches = re.findall(pattern, page_source)
                 
@@ -123,13 +176,11 @@ class YandexImageScraper():
                     if len(image_urls) >= self.number_of_images:
                         break
                     
-                    # URL decode et
                     real_url = unquote(match)
                     
                     if len(real_url) > 50 and real_url not in image_urls:
                         if any(ext in real_url.lower() for ext in ['.jpg', '.jpeg', '.png', '.webp']):
-                            # URL'yi temizle
-                            real_url = real_url.split('&')[0]  # Sonraki parametreleri kaldır
+                            real_url = real_url.split('&')[0]
                             
                             image_urls.add(real_url)
                             print(f"[INFO] #{len(image_urls)}: {real_url[:90]}...")
@@ -148,15 +199,37 @@ class YandexImageScraper():
                         image_urls.add(url)
                         print(f"[INFO] #{len(image_urls)}: {url[:90]}...")
                 
-                # Scroll yap
-                self.driver.execute_script("window.scrollBy(0, 800);")
-                time.sleep(1.5)
+                # Yeni resim bulunamadıysa sayacı artır
+                if len(image_urls) == previous_count:
+                    no_new_images_count += 1
+                    print(f"[WARNING] Yeni resim bulunamadı (sayaç: {no_new_images_count})")
+                    
+                    # DAHA TOLERANSLI DURDURMA - 10 kez dene
+                    if no_new_images_count >= 10:
+                        print("[INFO] 10 kez yeni resim bulunamadı, arama sonlandırılıyor...")
+                        break
+                else:
+                    no_new_images_count = 0  # Yeni resim bulundu, sayacı sıfırla
+                
+                # ÇEŞİTLİ SCROLL STRATEJİLERİ
+                if scroll_count % 10 == 0:
+                    # Her 10 scroll'da tüm sayfayı aşağı kaydır
+                    self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                    print(f"[INFO] Full scroll down - Found {len(image_urls)} images so far")
+                    time.sleep(3)
+                elif scroll_count % 5 == 0:
+                    # Her 5 scroll'da büyük atlama
+                    self.driver.execute_script("window.scrollBy(0, 2000);")
+                    time.sleep(2)
+                else:
+                    # Normal scroll
+                    self.driver.execute_script("window.scrollBy(0, 800);")
+                    time.sleep(1.5)
+                
                 scroll_count += 1
                 
-                if scroll_count % 5 == 0:
+                if scroll_count % 10 == 0:
                     print(f"[INFO] Scrolled {scroll_count} times, found {len(image_urls)} unique images")
-                    self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                    time.sleep(2)
                 
                 if len(image_urls) >= self.number_of_images:
                     print(f"[SUCCESS] Collected {len(image_urls)} image URLs!")
@@ -199,7 +272,6 @@ class YandexImageScraper():
                     try:
                         image_from_web = Image.open(io.BytesIO(response.content))
                         
-                        # Dosya adı oluştur
                         search_string = ''.join(e for e in self.search_key if e.isalnum())
                         
                         if keep_filenames:
@@ -211,7 +283,6 @@ class YandexImageScraper():
                         
                         image_path = os.path.join(self.image_path, filename)
                         
-                        # RGBA -> RGB dönüşümü
                         if image_from_web.mode == 'RGBA':
                             rgb_im = image_from_web.convert('RGB')
                             rgb_im.save(image_path)
@@ -220,7 +291,6 @@ class YandexImageScraper():
                         
                         width, height = image_from_web.size
                         
-                        # Çözünürlük kontrolü
                         if (width >= self.min_resolution[0] and 
                             height >= self.min_resolution[1] and
                             width <= self.max_resolution[0] and 

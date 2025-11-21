@@ -33,19 +33,21 @@ if __name__ == "__main__":
 
     # ARAMA AYARLARI
     search_keys = [
-        #"galata kulesi",
+        #"kamondo merdivenleri",
         #"kız kulesi",
-        "kamondo merdivenleri"
+        "galata kulesi"
     ]
 
     # Parameters
-    number_of_images = 300           # İlk teste için düşük tutalım
+    number_of_images = 1000           # 1000 Resim
     headless = False                # Chrome'u görmek için False
     min_resolution = (400, 400)     # Minimum çözünürlük
     max_resolution = (9999, 9999)
     max_missed = 300
     number_of_workers = 1           # Tek seferde bir arama
     keep_filenames = False
+
+    # !Bilgilendirme: İstediğiniz resim sayısına ulaşamıyorsanız GoogleImageScraper.py dosyasındaki max_scrolls parametresini artırın.
 
     print("=" * 60)
     print("YANDEX IMAGE SCRAPER")
