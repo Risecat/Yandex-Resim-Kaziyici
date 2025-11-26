@@ -98,7 +98,7 @@ allowed_formats = ['.jpg', '.png', '.webp', '.gif']  # Daha fazla format
 1. Terminali (PowerShell veya CMD) açın
 2. Proje klasörüne gidin:
    ```bash
-   cd Yandex-Image-Scraper
+   cd Yandex-Resim-Kaziyici
    ```
 3. Programı çalıştırın:
    ```bash
