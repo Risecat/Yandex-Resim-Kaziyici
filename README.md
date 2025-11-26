@@ -19,8 +19,8 @@ Yandex Görseller'de scroll limiti yoktur. Google'dan farklı olarak istediğini
 ### 1. Projeyi İndirin
 
 ```bash
-git clone https://github.com/Risecat/Yandex-Image-Scraper.git
-cd Yandex-Image-Scraper
+git https://github.com/Risecat/Yandex-Resim-Kaziyici
+cd Yandex-Resim-Kaziyici
 ```
 
 ### 2. Bağımlılıkları Yükleyin
