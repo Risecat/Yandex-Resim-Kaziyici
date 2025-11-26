@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Updated for Yandex Image Search
+Updated for Yandex Image Search with Pagination Support
 """
 import os
 import concurrent.futures
@@ -15,15 +15,18 @@ def worker_thread(search_key):
         headless, 
         min_resolution, 
         max_resolution, 
-        max_missed)
+        max_missed,
+        enable_pagination,  # Sayfalandırma
+        max_scrolls,        # Maksimum scroll sayısı
+        no_image_threshold, # Bulunamama eşiği
+        allowed_formats)    # İzin verilen formatlar (YENİ)
+    
     image_urls = image_scraper.find_image_urls()
     
-    print(f"\n[DEBUG] Found {len(image_urls)} URLs for '{search_key}'")
+    print(f"\n[DEBUG] '{search_key}' için toplam {len(image_urls)} URL bulundu")
     
-    if len(image_urls) > 0:
-        image_scraper.save_images(image_urls, keep_filenames)
-    else:
-        print(f"[WARNING] No images found for '{search_key}', skipping download phase")
+    # find_image_urls artık hem toplama hem kaydetme işini yapıyor
+    # Sayfalandırma aktifse her sayfa kendi klasörüne kaydediliyor
 
     del image_scraper
 
@@ -33,29 +36,37 @@ if __name__ == "__main__":
 
     # ARAMA AYARLARI
     search_keys = [
-        #"kamondo merdivenleri",
         #"kız kulesi",
-        "galata kulesi"
+        "galata kulesi",
+        #"kamondo merdivenleri",
     ]
 
     # Parameters
-    number_of_images = 1000           # 1000 Resim
-    headless = False                # Chrome'u görmek için False
-    min_resolution = (400, 400)     # Minimum çözünürlük
+    number_of_images = 1200             # İstediğiniz toplam resim sayısı
+    headless = False                   # Chrome'u görmek için False (Robot musunuz sorusu için False önerilir)
+    min_resolution = (320, 320)        # Minimum çözünürlük
+    allowed_formats = ['.jpg', '.jpeg', '.webp']  # İzin verilen formatlar
     max_resolution = (9999, 9999)
-    max_missed = 300
-    number_of_workers = 1           # Tek seferde bir arama
-    keep_filenames = False
-
-    # !Bilgilendirme: İstediğiniz resim sayısına ulaşamıyorsanız GoogleImageScraper.py dosyasındaki max_scrolls parametresini artırın.
+    max_missed = 750                   # Maksimum başarısız deneme sayısı
+    number_of_workers = 1              # Tek seferde bir arama
+    keep_filenames = False             # Orijinal dosya adlarını koru
+    enable_pagination = True           # True ise, hedef sayıya ulaşana kadar sayfalar arasında gezinir her sayfa "Page_1","Page_2", "Page_3" vb. klasörlere kaydedilir
+    
+    # SCROLL VE BULUNAMAMA AYARLARI (YENİ)
+    max_scrolls = 1000                 # Maksimum kaç kez scroll yapılacak
+    no_image_threshold = 10            #Kaç kez üst üste resim bulunamazsa sonraki sayfaya geçilir (varsayılan: 10)
 
     print("=" * 60)
-    print("YANDEX IMAGE SCRAPER")
+    print("YANDEX IMAGE SCRAPER - PAGINATION SUPPORT")
     print("=" * 60)
     print(f"Search queries: {search_keys}")
     print(f"Images per query: {number_of_images}")
     print(f"Headless mode: {headless}")
     print(f"Min resolution: {min_resolution}")
+    print(f"Pagination enabled: {enable_pagination}")
+    print(f"Max scrolls per page: {max_scrolls}")
+    print(f"No image threshold: {no_image_threshold}")
+    print(f"Allowed formats: {allowed_formats}")
     print("=" * 60)
     print()
 
