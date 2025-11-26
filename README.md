@@ -11,7 +11,7 @@ Yandex Görseller'de scroll limiti yoktur. Google'dan farklı olarak istediğini
 ## Gereksinimler
 
 1. Google Chrome
-2. Python 3
+2. Python <= 3.12
 3. Windows OS
 
 ## Kurulum
